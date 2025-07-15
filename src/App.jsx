@@ -5,7 +5,30 @@ import MagicLinkLogin from './components/auth/MagicLinkLogin'
 import Dashboard from './pages/Dashboard'
 
 function App() {
-  const { user, loading } = useAuth()
+  console.log('=== APP COMPONENT RENDERED ===')
+  console.log('Window object:', typeof window !== 'undefined' ? 'exists' : 'undefined')
+  console.log('Document object:', typeof document !== 'undefined' ? 'exists' : 'undefined')
+  console.log('Console object:', typeof console !== 'undefined' ? 'exists' : 'undefined')
+  
+  // Add error boundary around useAuth
+  let authResult
+  try {
+    authResult = useAuth()
+    console.log('useAuth successful:', authResult)
+  } catch (error) {
+    console.error('useAuth error:', error)
+    return (
+      <div className="min-h-screen bg-red-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Auth Error</h1>
+          <p className="text-red-700">{error.message}</p>
+        </div>
+      </div>
+    )
+  }
+  
+  const { user, loading } = authResult
+  console.log('App: user =', user, 'loading =', loading)
 
   if (loading) {
     return (

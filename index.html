@@ -8,6 +8,25 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      console.log('=== HTML SCRIPT LOADED ===')
+      console.log('Document ready state:', document.readyState)
+      console.log('Root element exists:', !!document.getElementById('root'))
+      
+      // Check for any errors
+      window.addEventListener('error', function(e) {
+        console.error('Global error:', e.error)
+        console.error('Error message:', e.message)
+        console.error('Error filename:', e.filename)
+        console.error('Error lineno:', e.lineno)
+      })
+      
+      // Check when DOM is ready
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('=== DOM CONTENT LOADED ===')
+        console.log('Root element after DOMContentLoaded:', document.getElementById('root'))
+      })
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

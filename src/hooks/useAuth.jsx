@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { auth } from '../api/supabaseClient'
 
 const AuthContext = createContext({})
 
@@ -18,18 +19,31 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
+      handleAuthChange(session?.user ?? null)
     })
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
+      handleAuthChange(session?.user ?? null)
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  const handleAuthChange = async (authUser) => {
+    console.log('handleAuthChange called with:', authUser)
+    if (authUser) {
+      // Create user profile if it doesn't exist
+      try {
+        await auth.createUserProfile(authUser)
+      } catch (error) {
+        console.error('Error creating user profile:', error)
+      }
+    }
+    console.log('Setting user to:', authUser)
+    setUser(authUser)
+    setLoading(false)
+  }
 
   const signInWithMagicLink = async (email) => {
     const { error } = await supabase.auth.signInWithOtp({
