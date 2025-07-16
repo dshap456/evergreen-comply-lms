@@ -26,12 +26,20 @@ export const db = {
   },
 
   async update(table, id, data) {
+    console.log('=== DB UPDATE ===')
+    console.log('Table:', table)
+    console.log('ID:', id)
+    console.log('Data:', JSON.stringify(data, null, 2))
+    
     const { data: result, error } = await supabase
       .from(table)
       .update(data)
       .eq('id', id)
       .select()
       .single()
+    
+    console.log('DB Update result:', result)
+    console.log('DB Update error:', error)
     
     if (error) throw error
     return result
@@ -51,8 +59,18 @@ export const db = {
     let query = supabase.from(table).select('*')
     
     if (options.orderBy) {
-      const [column, direction] = options.orderBy.split(':')
-      query = query.order(column, { ascending: direction !== 'desc' })
+      if (options.orderBy.startsWith('-')) {
+        // Handle -column_name format (descending)
+        const column = options.orderBy.substring(1)
+        query = query.order(column, { ascending: false })
+      } else if (options.orderBy.includes(':')) {
+        // Handle column:desc format
+        const [column, direction] = options.orderBy.split(':')
+        query = query.order(column, { ascending: direction !== 'desc' })
+      } else {
+        // Default ascending
+        query = query.order(options.orderBy, { ascending: true })
+      }
     }
     
     if (options.limit) {
@@ -144,13 +162,15 @@ export const auth = {
 // Storage utilities
 export const storage = {
   async uploadFile(bucket, path, file, options = {}) {
+    const uploadOptions = {
+      cacheControl: '3600',
+      upsert: options.upsert || false,
+      ...options
+    }
+    
     const { data, error } = await supabase.storage
       .from(bucket)
-      .upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-        ...options
-      })
+      .upload(path, file, uploadOptions)
     
     if (error) throw error
     return data

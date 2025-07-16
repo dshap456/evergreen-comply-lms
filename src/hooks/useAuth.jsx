@@ -23,7 +23,11 @@ export const AuthProvider = ({ children }) => {
     })
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Handle auth callback and clear URL fragments
+      if (event === 'SIGNED_IN' && window.location.hash) {
+        window.history.replaceState({}, document.title, window.location.pathname)
+      }
       handleAuthChange(session?.user ?? null)
     })
 
@@ -31,27 +35,42 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const handleAuthChange = async (authUser) => {
-    console.log('handleAuthChange called with:', authUser)
+    // Store auth debug info
+    if (typeof window !== 'undefined') {
+      window.DEBUG_AUTH_CHANGE = {
+        authUser: authUser ? { id: authUser.id, email: authUser.email } : null,
+        timestamp: new Date().toISOString()
+      }
+    }
+    
     if (authUser) {
       // Create user profile if it doesn't exist
       try {
         await auth.createUserProfile(authUser)
       } catch (error) {
-        console.error('Error creating user profile:', error)
+        if (typeof window !== 'undefined') {
+          window.DEBUG_AUTH_ERROR = {
+            error: error.message,
+            timestamp: new Date().toISOString()
+          }
+        }
       }
     }
-    console.log('Setting user to:', authUser)
     setUser(authUser)
     setLoading(false)
   }
 
   const signInWithMagicLink = async (email) => {
+    // Force redirect to current domain (Netlify)
+    const redirectUrl = window.location.origin
+    console.log('Magic link redirect URL:', redirectUrl)
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: window.location.origin
+        emailRedirectTo: redirectUrl
       }
     })
+    console.log('Magic link result:', { error })
     return { error }
   }
 

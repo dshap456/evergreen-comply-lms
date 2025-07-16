@@ -5,10 +5,14 @@ import MagicLinkLogin from './components/auth/MagicLinkLogin'
 import Dashboard from './pages/Dashboard'
 
 function App() {
-  console.log('=== APP COMPONENT RENDERED ===')
-  console.log('Window object:', typeof window !== 'undefined' ? 'exists' : 'undefined')
-  console.log('Document object:', typeof document !== 'undefined' ? 'exists' : 'undefined')
-  console.log('Console object:', typeof console !== 'undefined' ? 'exists' : 'undefined')
+  // Force debug output that won't be optimized away
+  if (typeof window !== 'undefined') {
+    window.DEBUG_APP_STATE = {
+      rendered: new Date().toISOString(),
+      windowExists: typeof window !== 'undefined',
+      documentExists: typeof document !== 'undefined'
+    }
+  }
   
   // Add error boundary around useAuth
   let authResult
@@ -28,7 +32,15 @@ function App() {
   }
   
   const { user, loading } = authResult
-  console.log('App: user =', user, 'loading =', loading)
+  
+  // Store debug info in window object
+  if (typeof window !== 'undefined') {
+    window.DEBUG_AUTH_STATE = {
+      user: user ? { id: user.id, email: user.email } : null,
+      loading,
+      timestamp: new Date().toISOString()
+    }
+  }
 
   if (loading) {
     return (
@@ -42,9 +54,15 @@ function App() {
   }
 
   if (!user) {
+    if (typeof window !== 'undefined') {
+      window.DEBUG_FLOW = 'showing_login'
+    }
     return <MagicLinkLogin />
   }
 
+  if (typeof window !== 'undefined') {
+    window.DEBUG_FLOW = 'showing_dashboard'
+  }
   return (
     <Router>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">

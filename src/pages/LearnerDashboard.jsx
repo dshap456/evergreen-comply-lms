@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { Course, Enrollment } from '../api/entities'
+import CourseViewer from '../components/learner/CourseViewer'
 
 export default function LearnerDashboard({ user, onSignOut }) {
   const [courses, setCourses] = useState([])
   const [enrollments, setEnrollments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedCourse, setSelectedCourse] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -22,6 +24,16 @@ export default function LearnerDashboard({ user, onSignOut }) {
       console.error('Error loading data:', error)
     }
     setLoading(false)
+  }
+
+  const handleCourseSelect = (course) => {
+    setSelectedCourse(course)
+  }
+
+  const handleCloseCourse = () => {
+    setSelectedCourse(null)
+    // Reload data to get updated progress
+    loadData()
   }
 
   const handleUpgradeToTeamManager = async () => {
@@ -146,7 +158,10 @@ export default function LearnerDashboard({ user, onSignOut }) {
                               {enrollment.status.replace('_', ' ')}
                             </span>
                             
-                            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                            <button 
+                              onClick={() => handleCourseSelect(course)}
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            >
                               {enrollment.status === 'completed' ? 'Review' : 'Continue'}
                             </button>
                           </div>
@@ -203,6 +218,15 @@ export default function LearnerDashboard({ user, onSignOut }) {
           </div>
         )}
       </main>
+      
+      {/* Course Viewer Modal */}
+      {selectedCourse && (
+        <CourseViewer
+          course={selectedCourse}
+          user={user}
+          onClose={handleCloseCourse}
+        />
+      )}
     </div>
   )
 }

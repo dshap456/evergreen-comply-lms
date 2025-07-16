@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Course } from '../../api/entities'
 
-export default function CourseList({ courses, onEdit, onRefresh }) {
+export default function CourseList({ courses, onEdit, onRefresh, onBuildStructure }) {
   const [loading, setLoading] = useState('')
 
   const handlePublishToggle = async (course) => {
@@ -148,6 +148,16 @@ export default function CourseList({ courses, onEdit, onRefresh }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     Edit
+                  </button>
+
+                  <button
+                    onClick={() => onBuildStructure && onBuildStructure(course)}
+                    className="inline-flex items-center px-3 py-2 border border-slate-300 shadow-sm text-sm leading-4 font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    Build Structure
                   </button>
 
                   <button

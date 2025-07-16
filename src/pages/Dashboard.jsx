@@ -5,11 +5,26 @@ import AdminDashboard from './AdminDashboard'
 import LearnerDashboard from './LearnerDashboard'
 
 export default function Dashboard() {
-  console.log('Dashboard component rendered')
+  // Store dashboard debug info
+  if (typeof window !== 'undefined') {
+    window.DEBUG_DASHBOARD = {
+      rendered: new Date().toISOString(),
+      step: 'dashboard_start'
+    }
+  }
+  
   const { user, signOut } = useAuth()
-  console.log('useAuth result:', { user, signOut })
   const [userProfile, setUserProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  
+  // Store auth hook result
+  if (typeof window !== 'undefined') {
+    window.DEBUG_DASHBOARD_AUTH = {
+      user: user ? { id: user.id, email: user.email } : null,
+      hasSignOut: !!signOut,
+      timestamp: new Date().toISOString()
+    }
+  }
 
   useEffect(() => {
     console.log('Dashboard useEffect triggered, user:', user)
@@ -17,18 +32,40 @@ export default function Dashboard() {
   }, [user])
 
   const loadUserProfile = async () => {
-    console.log('loadUserProfile called, user:', user)
+    // Store profile loading debug info
+    if (typeof window !== 'undefined') {
+      window.DEBUG_PROFILE_LOADING = {
+        user: user ? { id: user.id, email: user.email } : null,
+        step: 'loading_start',
+        timestamp: new Date().toISOString()
+      }
+    }
+    
     try {
       if (user) {
-        console.log('Getting current user profile...')
         const profile = await auth.getCurrentUser()
-        console.log('Profile result:', profile)
+        
+        // Store profile result
+        if (typeof window !== 'undefined') {
+          window.DEBUG_PROFILE_RESULT = {
+            profile: profile,
+            timestamp: new Date().toISOString()
+          }
+        }
+        
         setUserProfile(profile)
       } else {
-        console.log('No user found')
+        if (typeof window !== 'undefined') {
+          window.DEBUG_PROFILE_LOADING.step = 'no_user_found'
+        }
       }
     } catch (error) {
-      console.error('Error loading user profile:', error)
+      if (typeof window !== 'undefined') {
+        window.DEBUG_PROFILE_ERROR = {
+          error: error.message,
+          timestamp: new Date().toISOString()
+        }
+      }
     }
     setLoading(false)
   }
@@ -48,6 +85,17 @@ export default function Dashboard() {
     )
   }
 
+  // TEMPORARY: Skip profile loading and go straight to admin dashboard for testing
+  if (user && user.email === 'support@evergreencomply.com') {
+    const tempProfile = {
+      id: user.id,
+      email: user.email,
+      full_name: 'EverGreen Comply Admin',
+      role: 'super_admin'
+    }
+    return <AdminDashboard user={tempProfile} onSignOut={handleSignOut} />
+  }
+  
   // Show migration success for first-time users without profile
   if (!userProfile) {
     return (
@@ -100,11 +148,27 @@ export default function Dashboard() {
               <div className="mt-8 text-sm text-slate-500">
                 <p>Environment: {import.meta.env.VITE_SUPABASE_URL ? 'Connected to Supabase' : 'Missing configuration'}</p>
                 <p>User ID: {user?.id}</p>
+                <p>User Email: {user?.email}</p>
+                <p>Loading State: {loading ? 'true' : 'false'}</p>
+                <p>User Profile: {userProfile ? JSON.stringify(userProfile) : 'null'}</p>
               </div>
 
               <div className="mt-8">
                 <button
-                  onClick={loadUserProfile}
+                  onClick={() => {
+                    // Force admin dashboard for support email
+                    if (user?.email === 'support@evergreencomply.com') {
+                      const tempProfile = {
+                        id: user.id,
+                        email: user.email,
+                        full_name: 'EverGreen Comply Admin',
+                        role: 'super_admin'
+                      }
+                      setUserProfile(tempProfile)
+                    } else {
+                      loadUserProfile()
+                    }
+                  }}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md"
                 >
                   Continue to Dashboard

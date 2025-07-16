@@ -18,6 +18,7 @@ export const Course = {
     // Create initial version
     await CourseVersion.create({
       course_id: course.id,
+      version_number: 1,
       version_string: '1.0',
       version_type: 'major',
       title: course.title,
@@ -105,7 +106,7 @@ export const Module = {
   async list(courseId) {
     return db.list('modules', { 
       filter: { course_id: courseId },
-      orderBy: 'order_index:asc'
+      orderBy: 'order_index'
     })
   },
 
@@ -130,6 +131,46 @@ export const Module = {
       db.update('modules', id, { order_index: index })
     )
     return Promise.all(updates)
+  },
+
+  async getWithLessons(courseId) {
+    console.log('=== LOADING MODULES WITH LESSONS ===')
+    console.log('Course ID:', courseId)
+    
+    const { data, error } = await supabase
+      .from('modules')
+      .select(`
+        *,
+        lessons (
+          *,
+          quiz_questions (*)
+        )
+      `)
+      .eq('course_id', courseId)
+      .order('order_index')
+    
+    console.log('Modules query result:', data)
+    console.log('Modules query error:', error)
+    
+    if (error) throw error
+    
+    // Sort lessons by order_index within each module
+    const result = data.map(module => ({
+      ...module,
+      lessons: module.lessons.sort((a, b) => a.order_index - b.order_index)
+    }))
+    
+    console.log('Final modules with lessons:', result)
+    
+    // Log each lesson to see if video_url is included
+    result.forEach(module => {
+      console.log(`Module: ${module.title}`)
+      module.lessons?.forEach(lesson => {
+        console.log(`  Lesson: ${lesson.title}, video_url: ${lesson.video_url || 'NOT SET'}`)
+      })
+    })
+    
+    return result
   }
 }
 
@@ -178,6 +219,139 @@ export const ContentItem = {
     })
     
     return publicUrl
+  }
+}
+
+// Lesson entity
+export const Lesson = {
+  async list(moduleId) {
+    return db.list('lessons', { 
+      filter: { module_id: moduleId },
+      orderBy: 'order_index'
+    })
+  },
+
+  async create(data) {
+    return db.create('lessons', data)
+  },
+
+  async get(id) {
+    return db.read('lessons', id)
+  },
+
+  async update(id, data) {
+    console.log('=== LESSON UPDATE ===')
+    console.log('Lesson ID:', id)
+    console.log('Update data:', JSON.stringify(data, null, 2))
+    const result = await db.update('lessons', id, data)
+    console.log('Update result:', result)
+    return result
+  },
+
+  async delete(id) {
+    return db.delete('lessons', id)
+  },
+
+  async reorder(lessonIds) {
+    const updates = lessonIds.map((id, index) => 
+      db.update('lessons', id, { order_index: index })
+    )
+    return Promise.all(updates)
+  },
+
+  async getWithQuestions(id) {
+    const { data, error } = await supabase
+      .from('lessons')
+      .select(`
+        *,
+        quiz_questions (*)
+      `)
+      .eq('id', id)
+      .single()
+    
+    if (error) throw error
+    
+    // Sort questions by order_index
+    if (data.quiz_questions) {
+      data.quiz_questions.sort((a, b) => a.order_index - b.order_index)
+    }
+    
+    return data
+  },
+
+  async uploadVideo(file, courseId, lessonId) {
+    const fileName = `courses/${courseId}/videos/${lessonId}/${file.name}`
+    
+    // Upload to Supabase Storage with upsert to overwrite existing files
+    const uploadResult = await storage.uploadFile('course-content', fileName, file, {
+      upsert: true
+    })
+    
+    // Get public URL
+    const publicUrl = await storage.getPublicUrl('course-content', fileName)
+    
+    // Update lesson with video URL (only update if lessonId exists)
+    if (lessonId && lessonId !== 'temp') {
+      await this.update(lessonId, { 
+        video_url: publicUrl
+      })
+    }
+    
+    return publicUrl
+  },
+
+  async uploadAsset(file, courseId, lessonId) {
+    const fileName = `courses/${courseId}/assets/${lessonId}/${file.name}`
+    
+    // Upload to Supabase Storage with upsert to overwrite existing files
+    const uploadResult = await storage.uploadFile('course-content', fileName, file, {
+      upsert: true
+    })
+    
+    // Get public URL
+    const publicUrl = await storage.getPublicUrl('course-content', fileName)
+    
+    // Update lesson with asset URL (only update if lessonId exists)
+    if (lessonId && lessonId !== 'temp') {
+      await this.update(lessonId, { 
+        asset_url: publicUrl
+      })
+    }
+    
+    return publicUrl
+  }
+}
+
+// Quiz Question entity
+export const QuizQuestion = {
+  async list(lessonId) {
+    return db.list('quiz_questions', { 
+      filter: { lesson_id: lessonId },
+      orderBy: 'order_index'
+    })
+  },
+
+  async create(data) {
+    return db.create('quiz_questions', data)
+  },
+
+  async get(id) {
+    return db.read('quiz_questions', id)
+  },
+
+  async update(id, data) {
+    return db.update('quiz_questions', id, data)
+  },
+
+  async delete(id) {
+    return db.delete('quiz_questions', id)
+  },
+
+  async reorder(questionIds) {
+    const updates = questionIds.map((id, index) => 
+      db.update('quiz_questions', id, { order_index: index })
+    )
+    return Promise.all(updates)
   }
 }
 
@@ -257,5 +431,204 @@ export const Enrollment = {
 
   async getCourseEnrollments(courseId) {
     return db.list('enrollments', { filter: { course_id: courseId } })
+  },
+
+  async getWithProgress(userId, courseId) {
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select(`
+        *,
+        lesson_progress (*),
+        quiz_attempts (*)
+      `)
+      .eq('user_id', userId)
+      .eq('course_id', courseId)
+      .single()
+    
+    if (error) throw error
+    return data
+  },
+
+  // Admin/Team Manager reporting functions
+  async getEnrollmentReports(courseId = null) {
+    let query = supabase
+      .from('enrollments')
+      .select(`
+        *,
+        users!enrollments_user_id_fkey (
+          id, 
+          email, 
+          full_name
+        ),
+        courses!enrollments_course_id_fkey (
+          id,
+          title,
+          sku
+        )
+      `)
+      .order('created_date', { ascending: false })
+    
+    if (courseId) {
+      query = query.eq('course_id', courseId)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    
+    // Get final quiz scores for each enrollment
+    const enrichedData = await Promise.all(data.map(async (enrollment) => {
+      // Find final quiz for this course
+      const finalQuizScore = await this.getFinalQuizScore(enrollment.user_id, enrollment.course_id)
+      
+      return {
+        ...enrollment,
+        student_name: enrollment.users?.full_name || enrollment.users?.email || 'Unknown',
+        student_email: enrollment.users?.email,
+        course_title: enrollment.courses?.title,
+        course_sku: enrollment.courses?.sku,
+        final_quiz_score: finalQuizScore
+      }
+    }))
+    
+    return enrichedData
+  },
+
+  async getFinalQuizScore(userId, courseId) {
+    try {
+      // Get course modules and lessons to find final quiz
+      const modules = await Module.getWithLessons(courseId)
+      const allLessons = modules.flatMap(m => m.lessons || [])
+      const finalQuizzes = allLessons.filter(l => l.is_final_quiz && l.content_type === 'quiz')
+      
+      if (finalQuizzes.length === 0) {
+        return null // No final quiz for this course
+      }
+      
+      // Get best score from final quiz attempts
+      let bestScore = null
+      for (const quiz of finalQuizzes) {
+        const bestAttempt = await QuizAttempt.getBestAttempt(userId, quiz.id)
+        if (bestAttempt && (bestScore === null || bestAttempt.score > bestScore)) {
+          bestScore = bestAttempt.score
+        }
+      }
+      
+      return bestScore
+    } catch (error) {
+      console.error('Error getting final quiz score:', error)
+      return null
+    }
+  }}
+}
+
+// Lesson Progress entity
+export const LessonProgress = {
+  async list(userId, courseId = null) {
+    let filter = { user_id: userId }
+    if (courseId) {
+      // Get lessons for this course first, then filter progress
+      const modules = await Module.list(courseId)
+      const lessonIds = modules.flatMap(m => m.lessons?.map(l => l.id) || [])
+      return db.list('lesson_progress', { 
+        filter: { 
+          user_id: userId,
+          lesson_id: { in: lessonIds }
+        } 
+      })
+    }
+    return db.list('lesson_progress', { filter })
+  },
+
+  async get(userId, lessonId) {
+    const { data, error } = await supabase
+      .from('lesson_progress')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('lesson_id', lessonId)
+      .single()
+    
+    if (error && error.code !== 'PGRST116') throw error
+    return data
+  },
+
+  async create(data) {
+    return db.create('lesson_progress', data)
+  },
+
+  async update(userId, lessonId, data) {
+    const existing = await this.get(userId, lessonId)
+    if (existing) {
+      return db.update('lesson_progress', existing.id, data)
+    } else {
+      return this.create({
+        user_id: userId,
+        lesson_id: lessonId,
+        ...data
+      })
+    }
+  },
+
+  async markCompleted(userId, lessonId, timeSpent = 0) {
+    return this.update(userId, lessonId, {
+      status: 'completed',
+      progress_percentage: 100,
+      time_spent: timeSpent,
+      completed_date: new Date().toISOString()
+    })
+  },
+
+  async markInProgress(userId, lessonId) {
+    return this.update(userId, lessonId, {
+      status: 'in_progress',
+      started_date: new Date().toISOString()
+    })
+  }
+}
+
+// Quiz Attempts entity
+export const QuizAttempt = {
+  async list(userId, lessonId = null) {
+    let filter = { user_id: userId }
+    if (lessonId) filter.lesson_id = lessonId
+    return db.list('quiz_attempts', { 
+      filter,
+      orderBy: 'created_date:desc' 
+    })
+  },
+
+  async create(data) {
+    return db.create('quiz_attempts', data)
+  },
+
+  async get(id) {
+    return db.read('quiz_attempts', id)
+  },
+
+  async getBestAttempt(userId, lessonId) {
+    const { data, error } = await supabase
+      .from('quiz_attempts')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('lesson_id', lessonId)
+      .order('score', { ascending: false })
+      .limit(1)
+      .single()
+    
+    if (error && error.code !== 'PGRST116') throw error
+    return data
+  },
+
+  async getLatestAttempt(userId, lessonId) {
+    const { data, error } = await supabase
+      .from('quiz_attempts')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('lesson_id', lessonId)
+      .order('created_date', { ascending: false })
+      .limit(1)
+      .single()
+    
+    if (error && error.code !== 'PGRST116') throw error
+    return data
   }
 }

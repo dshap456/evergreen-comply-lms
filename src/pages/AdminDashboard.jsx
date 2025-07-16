@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Course, User } from '../api/entities'
 import CourseForm from '../components/admin/CourseForm'
 import CourseList from '../components/admin/CourseList'
+import CourseBuilder from '../components/admin/CourseBuilder'
+import StudentReports from '../components/admin/StudentReports'
 
 export default function AdminDashboard({ user, onSignOut }) {
   const [activeTab, setActiveTab] = useState('courses')
@@ -10,6 +12,8 @@ export default function AdminDashboard({ user, onSignOut }) {
   const [loading, setLoading] = useState(true)
   const [showCourseForm, setShowCourseForm] = useState(false)
   const [editingCourse, setEditingCourse] = useState(null)
+  const [showCourseBuilder, setShowCourseBuilder] = useState(false)
+  const [buildingCourse, setBuildingCourse] = useState(null)
 
   useEffect(() => {
     loadData()
@@ -17,14 +21,22 @@ export default function AdminDashboard({ user, onSignOut }) {
 
   const loadData = async () => {
     try {
-      const [coursesData, usersData] = await Promise.all([
-        Course.list(),
-        User.list()
-      ])
+      console.log('Loading admin dashboard data...')
+      
+      console.log('Loading courses...')
+      const coursesData = await Course.list()
+      console.log('Courses loaded:', coursesData)
+      
+      console.log('Loading users...')
+      const usersData = await User.list()
+      console.log('Users loaded:', usersData)
+      
       setCourses(coursesData)
       setUsers(usersData)
+      console.log('Data loading completed successfully')
     } catch (error) {
       console.error('Error loading data:', error)
+      console.error('Error details:', error.message, error.stack)
     }
     setLoading(false)
   }
@@ -43,6 +55,16 @@ export default function AdminDashboard({ user, onSignOut }) {
     setShowCourseForm(false)
     setEditingCourse(null)
     loadData() // Refresh data
+  }
+
+  const handleBuildStructure = (course) => {
+    setBuildingCourse(course)
+    setShowCourseBuilder(true)
+  }
+
+  const handleCourseBuilderClose = () => {
+    setShowCourseBuilder(false)
+    setBuildingCourse(null)
   }
 
   if (loading) {
@@ -106,6 +128,16 @@ export default function AdminDashboard({ user, onSignOut }) {
               Users ({users.length})
             </button>
             <button
+              onClick={() => setActiveTab('reports')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'reports'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              Student Reports
+            </button>
+            <button
               onClick={() => setActiveTab('analytics')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'analytics'
@@ -141,6 +173,7 @@ export default function AdminDashboard({ user, onSignOut }) {
               courses={courses}
               onEdit={handleEditCourse}
               onRefresh={loadData}
+              onBuildStructure={handleBuildStructure}
             />
           </div>
         )}
@@ -185,6 +218,11 @@ export default function AdminDashboard({ user, onSignOut }) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Student Reports Tab */}
+        {activeTab === 'reports' && (
+          <StudentReports user={user} />
         )}
 
         {/* Analytics Tab */}
@@ -262,6 +300,13 @@ export default function AdminDashboard({ user, onSignOut }) {
           course={editingCourse}
           onClose={handleCourseFormClose}
           instructorId={user.id}
+        />
+      )}
+
+      {showCourseBuilder && (
+        <CourseBuilder
+          course={buildingCourse}
+          onClose={handleCourseBuilderClose}
         />
       )}
     </div>

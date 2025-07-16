@@ -7,19 +7,16 @@ export default function CourseForm({ course, onClose, instructorId }) {
     description: '',
     short_description: '',
     category: '',
-    level: 'beginner',
     price: 0,
-    estimated_duration: 60,
+    estimated_duration: '1-2 hours',
     available_languages: ['en'],
     default_language: 'en',
     is_published: false,
-    learning_objectives: [],
     prerequisites: [],
     tags: []
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [newObjective, setNewObjective] = useState('')
   const [newPrerequisite, setNewPrerequisite] = useState('')
   const [newTag, setNewTag] = useState('')
 
@@ -30,13 +27,11 @@ export default function CourseForm({ course, onClose, instructorId }) {
         description: course.description || '',
         short_description: course.short_description || '',
         category: course.category || '',
-        level: course.level || 'beginner',
         price: course.price || 0,
-        estimated_duration: course.estimated_duration || 60,
+        estimated_duration: course.estimated_duration || '1-2 hours',
         available_languages: course.available_languages || ['en'],
         default_language: course.default_language || 'en',
         is_published: course.is_published || false,
-        learning_objectives: course.learning_objectives || [],
         prerequisites: course.prerequisites || [],
         tags: course.tags || []
       })
@@ -59,22 +54,6 @@ export default function CourseForm({ course, onClose, instructorId }) {
     }))
   }
 
-  const addObjective = () => {
-    if (newObjective.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        learning_objectives: [...prev.learning_objectives, newObjective.trim()]
-      }))
-      setNewObjective('')
-    }
-  }
-
-  const removeObjective = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      learning_objectives: prev.learning_objectives.filter((_, i) => i !== index)
-    }))
-  }
 
   const addPrerequisite = () => {
     if (newPrerequisite.trim()) {
@@ -119,18 +98,23 @@ export default function CourseForm({ course, onClose, instructorId }) {
       const courseData = {
         ...formData,
         instructor_id: instructorId,
-        price: parseFloat(formData.price),
-        estimated_duration: parseInt(formData.estimated_duration)
+        price: parseFloat(formData.price)
       }
+
+      console.log('Saving course data:', courseData)
 
       if (course) {
-        await Course.update(course.id, courseData)
+        const result = await Course.update(course.id, courseData)
+        console.log('Course updated:', result)
       } else {
-        await Course.create(courseData)
+        const result = await Course.create(courseData)
+        console.log('Course created:', result)
       }
 
+      console.log('Course saved successfully, closing form')
       onClose()
     } catch (err) {
+      console.error('Error saving course:', err)
       setError(err.message)
     } finally {
       setLoading(false)
@@ -191,21 +175,6 @@ export default function CourseForm({ course, onClose, instructorId }) {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Level
-                </label>
-                <select
-                  name="level"
-                  value={formData.level}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -224,14 +193,14 @@ export default function CourseForm({ course, onClose, instructorId }) {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Estimated Duration (minutes)
+                  Estimated Duration
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   name="estimated_duration"
                   value={formData.estimated_duration}
-                  onChange={handleNumberChange}
-                  min="1"
+                  onChange={handleChange}
+                  placeholder="e.g., 1-4 hours, 30 minutes, 2-3 days"
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -279,42 +248,6 @@ export default function CourseForm({ course, onClose, instructorId }) {
               />
             </div>
 
-            {/* Learning Objectives */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Learning Objectives
-              </label>
-              <div className="space-y-2">
-                {formData.learning_objectives.map((objective, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <span className="flex-1 text-sm">{objective}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeObjective(index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={newObjective}
-                    onChange={(e) => setNewObjective(e.target.value)}
-                    placeholder="Add learning objective"
-                    className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={addObjective}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
-            </div>
 
             {/* Prerequisites */}
             <div>
